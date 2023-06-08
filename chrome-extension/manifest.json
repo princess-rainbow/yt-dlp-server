@@ -1,0 +1,14 @@
+{
+  "name": "ytp-dp downloader",
+  "description": "Sends a url to a yt-dlp server",
+  "icons": { "16": "icon-48.png" },
+  "permissions": ["activeTab", "scripting", "tabs", "contextMenus"],
+  "background": { "service_worker": "background.js" },
+  "version": "1.0",
+  "manifest_version": 3,
+  "action": {
+    "default_icon": "icon-48.png",
+    "default_title": "ytp-dp downloader"
+  },
+  "author": "foo"
+}

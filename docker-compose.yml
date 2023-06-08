@@ -1,0 +1,76 @@
+version: '3.8'
+services:
+  ipvanish:
+    restart: unless-stopped
+    container_name: ipvanish
+    image: rundqvist/tinyproxy-openvpn
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - HOST_IP=192.168.XXX.100
+      - VPN_PROVIDER=ipvanish
+      - VPN_USERNAME=__XXX__
+      - VPN_PASSWORD=__XXX__
+      - VPN_COUNTRY=DK
+      - VPN_RANDOM_REMOTE=true
+    volumes:
+      - ./data/ipvanish/:/cache/
+      - /etc/resolv.conf:/etc/resolv.conf:ro
+    devices:
+      - /dev/net/tun
+    ports:
+      - 7777:8888
+      - 8801:8801
+
+  py-yt-server-web:
+    build: ./build/py-yt-server/
+    command: /opt/py-yt-server/server.py
+    restart: unless-stopped
+    container_name: py-yt-server-web
+    network_mode: service:ipvanish
+    environment:
+      LISTEN_PORT: 8801
+      SSL_CERT_PATH: /fullchain.pem
+      SSL_KEY_PATH: /privkey.pem
+    volumes:
+      - ./certs/fullchain.pem:/fullchain.pem
+      - ./certs/privkey.pem:/privkey.pem
+    depends_on:
+      - ipvanish
+      - redis
+    logging:
+        driver: "json-file"
+        options:
+            max-size: "50m"
+
+  py-yt-server-worker:
+    build: ./build/py-yt-server/
+    command: celery -A worker worker --loglevel=INFO --concurrency=3
+    restart: unless-stopped
+    container_name: py-yt-server-worker
+    network_mode: service:ipvanish
+    environment:
+      DESTINATION_DIR: "/Download/youtube-dl"
+      DOWNLOAD_PARAMETERS: "--no-check-certificates --no-progress --prefer-ffmpeg -f '(mp4)[height <=? 720]'"
+    volumes:
+      - /Download/youtube-dl:/Download/youtube-dl
+      - ./data/youtube-dl/archive.list:/archive.list
+      - "/etc/localtime:/etc/localtime:ro"
+    depends_on:
+      - ipvanish
+      - redis
+    logging:
+        driver: "json-file"
+        options:
+            max-size: "50m"
+
+  redis:
+    image: "redis:alpine"
+    restart: unless-stopped
+    command: redis-server
+    container_name: redis
+    network_mode: service:ipvanish
+    depends_on:
+      - ipvanish
+    volumes:
+      - ./data/redis/:/data/
